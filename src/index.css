@@ -1,0 +1,27 @@
+/**
+ * Styles for Link Block Tune
+ */
+
+.link-block-tune__wrapper {
+  transition: opacity 0.2s ease;
+}
+
+.link-block-tune__wrapper.link-block-tune--has-link {
+  opacity: 1;
+}
+
+.link-block-tune__link {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+
+.link-block-tune__link:hover {
+  text-decoration: underline;
+}
+
+.link-block-tune button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

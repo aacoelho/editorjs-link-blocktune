@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Link Block Tune – Editor.js</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest/dist/editorjs.css" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    #editor-holder { border: 1px solid #e0e0e0; border-radius: 4px; min-height: 200px; }
+    h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow: auto; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Link Block Tune – Example</h1>
+  <p>Select a block and use the settings (gear) to add a link to the block.</p>
+  <div id="editor-holder"></div>
+  <p><button type="button" id="save">Save</button></p>
+  <pre id="output">Output will appear here after Save.</pre>
+
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@editorjs/paragraph@latest"></script>
+  <script src="../dist/bundle.js"></script>
+  <script>
+    const editor = new EditorJS({
+      holder: 'editor-holder',
+      tools: {
+        paragraph: {
+          class: window.Paragraph,
+          inlineToolbar: true,
+          tunes: ['linkTune'],
+        },
+        header: {
+          class: window.Header,
+          inlineToolbar: true,
+          tunes: ['linkTune'],
+        },
+        linkTune: {
+          class: window.LinkBlockTune,
+          config: {
+            label: 'Add link',
+            icon: '🔗',
+          },
+        },
+      },
+    });
+
+    document.getElementById('save').addEventListener('click', function () {
+      editor.save().then(function (data) {
+        document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+      });
+    });
+  </script>
+</body>
+</html>

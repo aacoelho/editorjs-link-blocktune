@@ -1,0 +1,44 @@
+{
+  "name": "editorjs-link-blocktune",
+  "version": "1.0.0",
+  "main": "./dist/bundle.js",
+  "license": "MIT",
+  "keywords": [
+    "codex editor",
+    "editor.js",
+    "editorjs",
+    "block tune",
+    "blocktune",
+    "link"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/editorjs-link-blocktune.git"
+  },
+  "scripts": {
+    "build": "webpack --mode production",
+    "build:dev": "webpack --mode development --watch"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.10.2",
+    "@babel/preset-env": "^7.10.2",
+    "babel-loader": "^8.1.0",
+    "css-loader": "^3.5.3",
+    "raw-loader": "^4.0.1",
+    "style-loader": "^1.2.1",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.11"
+  },
+  "peerDependencies": {
+    "@editorjs/editorjs": ">=2.22.0"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/editorjs-link-blocktune/issues"
+  },
+  "homepage": "https://github.com/your-username/editorjs-link-blocktune#readme",
+  "directories": {
+    "example": "example"
+  },
+  "dependencies": {},
+  "description": "Link Block Tune for Editor.js – associate a link with any block"
+}
