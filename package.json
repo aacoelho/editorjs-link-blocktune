@@ -39,6 +39,8 @@
   "directories": {
     "example": "example"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@codexteam/icons": "^0.3.3"
+  },
   "description": "Link Block Tune for Editor.js – associate a link with any block"
 }

@@ -53,7 +53,6 @@ const editor = new EditorJS({
       class: LinkBlockTune,
       config: {
         label: 'Add link',
-        icon: '🔗',
       },
     },
   },
@@ -62,10 +61,12 @@ const editor = new EditorJS({
 
 ## Config
 
-| Field  | Type   | Description                    |
-|--------|--------|--------------------------------|
-| label  | string | Tooltip text for the tune btn  |
-| icon   | string | Icon (emoji or HTML) for menu  |
+| Field           | Type   | Description                                      |
+|-----------------|--------|--------------------------------------------------|
+| label           | string | Tooltip / default “Add link” text                |
+| labelAddLink    | string | Label when no link is set (default: "Add link")  |
+| labelEditLink   | string | Label when link is set (default: "Edit link")    |
+| icon            | string | Optional. Override icon (SVG string etc)         |
 
 ## Saved data
 

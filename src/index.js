@@ -5,6 +5,7 @@
  */
 
 import './index.css';
+import { IconLink } from '@codexteam/icons';
 
 function isValidUrl(string) {
   if (!string || typeof string !== 'string') return false;
@@ -26,48 +27,74 @@ function ensureProtocol(url) {
 }
 
 export default class LinkBlockTune {
-  /**
-   * @param {Object} params
-   * @param {Object} params.api - Editor's API object
-   * @param {Object} params.data - Tune's saved data (e.g. { url: '' })
-   * @param {Object} params.config - User-provided configuration
-   * @param {Object} params.block - Block API object this tune is related to
-   */
-  constructor({ api, data, config, block }) {
-    this.api = api;
-    this.data = data || {};
-    this.config = config || {};
-    this.block = block;
-    this.wrapper = null;
-    if (typeof this.data.url !== 'string') {
-      this.data.url = '';
-    }
-  }
-
-  /**
-   * Required: Mark this class as a Block Tune.
-   */
   static get isTune() {
     return true;
   }
 
   /**
-   * Required: Define tune appearance in the Block Tunes menu.
-   * @returns {HTMLElement}
+   * @param {Object} params
+   * @param {Object} params.api - Editor's API object
+   * @param {Object} params.data - Tune's saved data (e.g. { url: '' })
+   * @param {Object} params.config - User-provided configuration (label, icon, labelAddLink, labelEditLink)
+   * @param {Object} params.block - Block API object this tune is related to
+   */
+  constructor({ api, data, config, block }) {
+    this.api = api;
+    this.block = block;
+    this.config = config || {};
+    this.data = data || {};
+    this.wrapper = null;
+    if (typeof this.data.url !== 'string') {
+      this.data.url = '';
+    }
+    this._CSS = {
+      wrapper: 'link-block-tune__wrapper',
+      wrapperHasLink: 'link-block-tune--has-link',
+      button: {
+        default: 'ce-popover-item',
+        active: 'ce-popover-item--active',
+        icon: 'ce-popover-item__icon',
+        title: 'ce-popover-item__title',
+      },
+    };
+  }
+
+  /**
+   * Wrap block content. Link is stored in tune data only; no anchor is applied.
+   * @param {HTMLElement} blockContent - Block's content element
+   * @returns {HTMLElement} Wrapper element containing blockContent
+   */
+  wrap(blockContent) {
+    this.wrapper = document.createElement('div');
+    this.wrapper.classList.add(this._CSS.wrapper);
+    this.wrapper.appendChild(blockContent);
+    this.applyState();
+    return this.wrapper;
+  }
+
+  /**
+   * Rendering block tune: Menu Config (same structure as alignment tune).
+   * @returns {Array<{ icon: string, name: string, label: string, toggle: string, isActive: boolean, onActivate: function }>}
    */
   render() {
-    const wrapper = document.createElement('div');
-    wrapper.classList.add('link-block-tune');
+    const linkTuneItem = {
+      icon: this.config.icon || IconLink,
+      name: 'link',
+      label: this.getLabel(),
+      toggle: 'link',
+      isActive: !!(this.data.url || '').trim(),
+      onActivate: () => {
+        this.onActivate();
+      },
+    };
+    return [linkTuneItem];
+  }
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.classList.add(this.api.styles.button);
-    button.innerHTML = this.config.icon || '🔗';
-    button.title = this.config.label || 'Add link';
-    button.addEventListener('click', () => this.onActivate());
-
-    wrapper.appendChild(button);
-    return wrapper;
+  getLabel() {
+    const hasLink = !!(this.data.url || '').trim();
+    return hasLink
+      ? (this.config.labelEditLink || 'Edit link')
+      : (this.config.labelAddLink || this.config.label || 'Add link');
   }
 
   /**
@@ -93,15 +120,16 @@ export default class LinkBlockTune {
       }
     }
     this.applyState();
+    this.block?.dispatchChange();
   }
 
   /**
-   * Apply visual state (e.g. wrapper has link class when url is set).
-   * Link is saved only; no anchor is applied to the block content.
+   * Apply visual state: wrapper has-link class.
    */
   applyState() {
-    if (!this.wrapper) return;
-    this.wrapper.classList.toggle('link-block-tune--has-link', !!this.data.url);
+    if (this.wrapper) {
+      this.wrapper.classList.toggle(this._CSS.wrapperHasLink, !!this.data.url);
+    }
   }
 
   /**
@@ -112,19 +140,6 @@ export default class LinkBlockTune {
     return {
       url: (this.data.url || '').trim(),
     };
-  }
-
-  /**
-   * Wrap block content. Link is stored in tune data only; no anchor is applied.
-   * @param {HTMLElement} blockContent - Block's content element
-   * @returns {HTMLElement} Wrapper element containing blockContent
-   */
-  wrap(blockContent) {
-    this.wrapper = document.createElement('div');
-    this.wrapper.classList.add('link-block-tune__wrapper');
-    this.wrapper.appendChild(blockContent);
-    this.applyState();
-    return this.wrapper;
   }
 
   static prepare(config) {
