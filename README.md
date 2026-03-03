@@ -73,6 +73,7 @@ const editor = new EditorJS({
 The tune saves with the block:
 
 - `url` (string) – The URL associated with the block. Empty string when no link is set.
+- `openInNewTab` (boolean) – Whether the link should open in a new tab (`target="_blank"`). Default `true`. Your front-end can use this when rendering the link.
 
 ## Development
 

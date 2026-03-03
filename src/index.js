@@ -7,6 +7,30 @@
 import './index.css';
 import { IconLink } from '@codexteam/icons';
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/**
+ * User-facing strings (labels, buttons, messages). Override via config where supported.
+ */
+const STRINGS = {
+  labelAddLink: 'Add link',
+  labelEditLink: 'Edit link',
+  modalTitle: 'Link',
+  modalLabelUrl: 'URL',
+  modalPlaceholderUrl: 'https://example.com or /path',
+  modalCheckboxOpenNewTab: 'Open in new tab',
+  modalButtonCancel: 'Cancel',
+  modalButtonSave: 'Save',
+  modalButtonRemoveLink: 'Remove link',
+  errorInvalidUrl: 'Please enter a valid URL.',
+};
+
+// ---------------------------------------------------------------------------
+// URL helpers (pure functions)
+// ---------------------------------------------------------------------------
+
 function isValidUrl(string) {
   if (!string || typeof string !== 'string') return false;
   const trimmed = string.trim();
@@ -28,34 +52,35 @@ function isValidUrl(string) {
 function ensureProtocol(url) {
   const trimmed = (url || '').trim();
   if (!trimmed) return '';
-  // Already has a scheme (http:, https:, mailto:, etc.)
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
-  // Relative URL: path, query, or hash — return as-is, never add protocol
   if (trimmed.charAt(0) === '/' || trimmed.charAt(0) === '?' || trimmed.charAt(0) === '#') return trimmed;
   if (trimmed.startsWith('./') || trimmed.startsWith('../')) return trimmed;
   return 'https://' + trimmed;
 }
+
+function isRelativeUrl(raw) {
+  return /^\//.test(raw) || /^\.\.?\//.test(raw) || /^[?#]/.test(raw);
+}
+
+// ---------------------------------------------------------------------------
+// LinkBlockTune (Block Tunes API)
+// ---------------------------------------------------------------------------
 
 export default class LinkBlockTune {
   static get isTune() {
     return true;
   }
 
-  /**
-   * @param {Object} params
-   * @param {Object} params.api - Editor's API object
-   * @param {Object} params.data - Tune's saved data (e.g. { url: '' })
-   * @param {Object} params.config - User-provided configuration (label, icon, labelAddLink, labelEditLink)
-   * @param {Object} params.block - Block API object this tune is related to
-   */
+  static prepare(config) {}
+  static reset() {}
+
   constructor({ api, data, config, block }) {
     this.api = api;
     this.block = block;
     this.config = config || {};
     this.data = data || {};
-    if (typeof this.data.url !== 'string') {
-      this.data.url = '';
-    }
+    if (typeof this.data.url !== 'string') this.data.url = '';
+    if (typeof this.data.openInNewTab !== 'boolean') this.data.openInNewTab = true;
     this._CSS = {
       button: {
         default: 'ce-popover-item',
@@ -66,80 +91,181 @@ export default class LinkBlockTune {
     };
   }
 
-  /**
-   * Wrap block content. Link is stored in tune data only; content is returned as-is.
-   * @param {HTMLElement} blockContent - Block's content element
-   * @returns {HTMLElement} blockContent
-   */
+  // ----- Block Tunes API -----
+
   wrap(blockContent) {
     return blockContent;
   }
 
-  /**
-   * Rendering block tune: Menu Config (same structure as alignment tune).
-   * @returns {Array<{ icon: string, name: string, label: string, toggle: string, isActive: boolean, onActivate: function }>}
-   */
   render() {
-    const linkTuneItem = {
-      icon: this.config.icon || IconLink,
-      name: 'link',
-      label: this.getLabel(),
-      toggle: 'link',
-      closeOnActivate: true,
-      onActivate: () => {
-        this.onActivate();
+    return [
+      {
+        icon: this.config.icon || IconLink,
+        name: 'link',
+        label: this.getLabel(),
+        toggle: 'link',
+        closeOnActivate: true,
+        onActivate: () => this.onActivate(),
       },
-    };
-    return [linkTuneItem];
+    ];
   }
+
+  save() {
+    return {
+      url: (this.data.url || '').trim(),
+      openInNewTab: !!this.data.openInNewTab,
+    };
+  }
+
+  // ----- Tune menu label -----
 
   getLabel() {
     const hasLink = !!(this.data.url || '').trim();
     return hasLink
-      ? this.config.labelEditLink || 'Edit link'
-      : this.config.labelAddLink || this.config.label || 'Add link';
+      ? (this.config.labelEditLink || STRINGS.labelEditLink)
+      : (this.config.labelAddLink || this.config.label || STRINGS.labelAddLink);
   }
 
-  /**
-   * Open prompt to set or clear the block link.
-   */
+  // ----- Modal: open and handle actions -----
+
   onActivate() {
     const currentUrl = (this.data.url || '').trim();
-    const message = currentUrl ? `Edit link for this block (leave empty to remove):` : `Enter URL for this block:`;
-    const input = window.prompt(message, currentUrl);
-    if (input === null) return; // cancelled
-    const raw = input.trim();
-    if (raw === '') {
-      this.data.url = '';
-    } else {
-      const isRelative = /^\//.test(raw) || /^\.\.?\//.test(raw) || /^[?#]/.test(raw);
-      const urlToValidate = isRelative ? raw : ensureProtocol(raw);
-      const urlToSave = isRelative ? raw : urlToValidate;
-      if (isValidUrl(urlToValidate)) {
-        this.data.url = urlToSave;
-      } else {
-        this.api.notifier.show('Please enter a valid URL.', 'error');
+    const currentOpenInNewTab = !!this.data.openInNewTab;
+    const modal = this._createModal(currentUrl, currentOpenInNewTab);
+
+    const close = () => {
+      modal.overlay.remove();
+      document.body.style.overflow = '';
+    };
+
+    modal.cancelBtn.addEventListener('click', close);
+    modal.saveBtn.addEventListener('click', () => {
+      const raw = modal.inputUrl.value.trim();
+      if (raw === '') {
+        this._clearLink();
+        close();
+        this.block?.dispatchChange();
         return;
       }
+      if (!this._applyLink(raw, modal.inputCheck.checked)) {
+        this.api.notifier.show(STRINGS.errorInvalidUrl, 'error');
+        return;
+      }
+      close();
+      this.block?.dispatchChange();
+    });
+    if (modal.removeBtn) {
+      modal.removeBtn.addEventListener('click', () => {
+        this._clearLink();
+        close();
+        this.block?.dispatchChange();
+      });
     }
-    this.block?.dispatchChange();
+
+    modal.overlay.addEventListener('click', (e) => e.target === modal.overlay && close());
+    modal.inputUrl.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') close();
+      if (e.key === 'Enter') modal.saveBtn.click();
+    });
+
+    document.body.appendChild(modal.overlay);
+    document.body.style.overflow = 'hidden';
+    modal.inputUrl.focus();
   }
 
   /**
-   * Return state to save with the block.
-   * @returns {{ url: string }}
+   * Build modal DOM. Returns overlay and refs needed for events.
+   * @private
    */
-  save() {
+  _createModal(currentUrl, currentOpenInNewTab) {
+    const overlay = document.createElement('div');
+    overlay.className = 'link-block-tune-modal-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'link-block-tune-modal';
+
+    const title = document.createElement('div');
+    title.className = 'link-block-tune-modal__title';
+    title.textContent = STRINGS.modalTitle;
+
+    const labelUrl = document.createElement('label');
+    labelUrl.className = 'link-block-tune-modal__label';
+    labelUrl.textContent = STRINGS.modalLabelUrl;
+    const inputUrl = document.createElement('input');
+    inputUrl.type = 'text';
+    inputUrl.className = 'link-block-tune-modal__input';
+    inputUrl.placeholder = STRINGS.modalPlaceholderUrl;
+    inputUrl.value = currentUrl;
+    inputUrl.setAttribute('autocomplete', 'off');
+    labelUrl.appendChild(inputUrl);
+
+    const labelCheck = document.createElement('label');
+    labelCheck.className = 'link-block-tune-modal__checkbox-wrap';
+    const inputCheck = document.createElement('input');
+    inputCheck.type = 'checkbox';
+    inputCheck.className = 'link-block-tune-modal__checkbox';
+    inputCheck.checked = currentOpenInNewTab;
+    const spanCheck = document.createElement('span');
+    spanCheck.textContent = STRINGS.modalCheckboxOpenNewTab;
+    labelCheck.appendChild(inputCheck);
+    labelCheck.appendChild(spanCheck);
+
+    const actions = document.createElement('div');
+    actions.className = 'link-block-tune-modal__actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'link-block-tune-modal__btn link-block-tune-modal__btn--cancel';
+    cancelBtn.textContent = STRINGS.modalButtonCancel;
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'link-block-tune-modal__btn link-block-tune-modal__btn--ok';
+    saveBtn.textContent = STRINGS.modalButtonSave;
+
+    if (currentUrl) {
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'link-block-tune-modal__btn link-block-tune-modal__btn--remove';
+      removeBtn.textContent = STRINGS.modalButtonRemoveLink;
+      actions.appendChild(removeBtn);
+    }
+    actions.appendChild(cancelBtn);
+    actions.appendChild(saveBtn);
+
+    dialog.append(title, labelUrl, labelCheck, actions);
+    overlay.appendChild(dialog);
+
+    const removeBtn = overlay.querySelector('.link-block-tune-modal__btn--remove');
     return {
-      url: (this.data.url || '').trim(),
+      overlay,
+      inputUrl,
+      inputCheck,
+      cancelBtn,
+      saveBtn,
+      removeBtn,
     };
   }
 
-  static prepare(config) {
-    // Optional: load external assets
+  /**
+   * Validate and set link data. Returns true if valid.
+   * @private
+   */
+  _applyLink(raw, openInNewTab) {
+    const urlToValidate = isRelativeUrl(raw) ? raw : ensureProtocol(raw);
+    const urlToSave = isRelativeUrl(raw) ? raw : urlToValidate;
+    if (!isValidUrl(urlToValidate)) return false;
+    this.data.url = urlToSave;
+    this.data.openInNewTab = openInNewTab;
+    return true;
   }
 
-  static reset() {
-    // Optional: clear global state
+  /**
+   * Clear link from block.
+   * @private
+   */
+  _clearLink() {
+    this.data.url = '';
+    this.data.openInNewTab = true;
   }
 }
