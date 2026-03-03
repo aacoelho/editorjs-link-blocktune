@@ -28,8 +28,11 @@ function isValidUrl(string) {
 function ensureProtocol(url) {
   const trimmed = (url || '').trim();
   if (!trimmed) return '';
+  // Already has a scheme (http:, https:, mailto:, etc.)
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
-  if (/^[?#]/.test(trimmed) || /^\.\.?\//.test(trimmed) || trimmed.startsWith('/')) return trimmed;
+  // Relative URL: path, query, or hash — return as-is, never add protocol
+  if (trimmed.charAt(0) === '/' || trimmed.charAt(0) === '?' || trimmed.charAt(0) === '#') return trimmed;
+  if (trimmed.startsWith('./') || trimmed.startsWith('../')) return trimmed;
   return 'https://' + trimmed;
 }
 
@@ -109,9 +112,11 @@ export default class LinkBlockTune {
     if (raw === '') {
       this.data.url = '';
     } else {
-      const url = ensureProtocol(raw);
-      if (isValidUrl(url)) {
-        this.data.url = url;
+      const isRelative = /^\//.test(raw) || /^\.\.?\//.test(raw) || /^[?#]/.test(raw);
+      const urlToValidate = isRelative ? raw : ensureProtocol(raw);
+      const urlToSave = isRelative ? raw : urlToValidate;
+      if (isValidUrl(urlToValidate)) {
+        this.data.url = urlToSave;
       } else {
         this.api.notifier.show('Please enter a valid URL.', 'error');
         return;
