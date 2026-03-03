@@ -12,8 +12,14 @@ function isValidUrl(string) {
   const trimmed = string.trim();
   if (!trimmed) return false;
   try {
-    const url = new URL(trimmed);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    const absolute = new URL(trimmed);
+    if (absolute.protocol === 'http:' || absolute.protocol === 'https:') return true;
+  } catch {
+    // not a valid absolute URL
+  }
+  try {
+    new URL(trimmed, 'https://example.com/');
+    return true;
   } catch {
     return false;
   }
@@ -22,7 +28,8 @@ function isValidUrl(string) {
 function ensureProtocol(url) {
   const trimmed = (url || '').trim();
   if (!trimmed) return '';
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
+  if (/^[?#]/.test(trimmed) || /^\.\.?\//.test(trimmed) || trimmed.startsWith('/')) return trimmed;
   return 'https://' + trimmed;
 }
 
@@ -43,13 +50,10 @@ export default class LinkBlockTune {
     this.block = block;
     this.config = config || {};
     this.data = data || {};
-    this.wrapper = null;
     if (typeof this.data.url !== 'string') {
       this.data.url = '';
     }
     this._CSS = {
-      wrapper: 'link-block-tune__wrapper',
-      wrapperHasLink: 'link-block-tune--has-link',
       button: {
         default: 'ce-popover-item',
         active: 'ce-popover-item--active',
@@ -60,16 +64,12 @@ export default class LinkBlockTune {
   }
 
   /**
-   * Wrap block content. Link is stored in tune data only; no anchor is applied.
+   * Wrap block content. Link is stored in tune data only; content is returned as-is.
    * @param {HTMLElement} blockContent - Block's content element
-   * @returns {HTMLElement} Wrapper element containing blockContent
+   * @returns {HTMLElement} blockContent
    */
   wrap(blockContent) {
-    this.wrapper = document.createElement('div');
-    this.wrapper.classList.add(this._CSS.wrapper);
-    this.wrapper.appendChild(blockContent);
-    this.applyState();
-    return this.wrapper;
+    return blockContent;
   }
 
   /**
@@ -82,7 +82,7 @@ export default class LinkBlockTune {
       name: 'link',
       label: this.getLabel(),
       toggle: 'link',
-      isActive: !!(this.data.url || '').trim(),
+      closeOnActivate: true,
       onActivate: () => {
         this.onActivate();
       },
@@ -93,8 +93,8 @@ export default class LinkBlockTune {
   getLabel() {
     const hasLink = !!(this.data.url || '').trim();
     return hasLink
-      ? (this.config.labelEditLink || 'Edit link')
-      : (this.config.labelAddLink || this.config.label || 'Add link');
+      ? this.config.labelEditLink || 'Edit link'
+      : this.config.labelAddLink || this.config.label || 'Add link';
   }
 
   /**
@@ -102,9 +102,7 @@ export default class LinkBlockTune {
    */
   onActivate() {
     const currentUrl = (this.data.url || '').trim();
-    const message = currentUrl
-      ? `Edit link for this block (leave empty to remove):`
-      : `Enter URL for this block:`;
+    const message = currentUrl ? `Edit link for this block (leave empty to remove):` : `Enter URL for this block:`;
     const input = window.prompt(message, currentUrl);
     if (input === null) return; // cancelled
     const raw = input.trim();
@@ -119,17 +117,7 @@ export default class LinkBlockTune {
         return;
       }
     }
-    this.applyState();
     this.block?.dispatchChange();
-  }
-
-  /**
-   * Apply visual state: wrapper has-link class.
-   */
-  applyState() {
-    if (this.wrapper) {
-      this.wrapper.classList.toggle(this._CSS.wrapperHasLink, !!this.data.url);
-    }
   }
 
   /**
