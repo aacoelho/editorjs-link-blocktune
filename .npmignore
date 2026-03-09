@@ -1,0 +1,21 @@
+# Dependencies and dev
+node_modules/
+
+# Dev / tooling
+.git
+.DS_Store
+*.log
+npm-debug.log*
+.env
+.env.local
+.idea
+.vscode
+
+# Source (consumers use dist/)
+src/
+
+# Example and config (optional to ship)
+example/
+babel.config.js
+webpack.config.js
+.prettierrc
