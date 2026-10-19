@@ -31,10 +31,23 @@ const STRINGS = {
 // URL helpers (pure functions)
 // ---------------------------------------------------------------------------
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidMailto(string) {
+  let addresses;
+  try {
+    addresses = decodeURIComponent(string.slice('mailto:'.length).split('?')[0]);
+  } catch {
+    return false;
+  }
+  return addresses.split(',').every((address) => EMAIL_RE.test(address.trim()));
+}
+
 function isValidUrl(string) {
   if (!string || typeof string !== 'string') return false;
   const trimmed = string.trim();
   if (!trimmed) return false;
+  if (/^mailto:/i.test(trimmed)) return isValidMailto(trimmed);
   try {
     const absolute = new URL(trimmed);
     if (absolute.protocol === 'http:' || absolute.protocol === 'https:') return true;
@@ -52,6 +65,7 @@ function isValidUrl(string) {
 function ensureProtocol(url) {
   const trimmed = (url || '').trim();
   if (!trimmed) return '';
+  if (/^mailto:/i.test(trimmed)) return trimmed;
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.charAt(0) === '/' || trimmed.charAt(0) === '?' || trimmed.charAt(0) === '#') return trimmed;
   if (trimmed.startsWith('./') || trimmed.startsWith('../')) return trimmed;
